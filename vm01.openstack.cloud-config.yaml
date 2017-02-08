@@ -1,0 +1,39 @@
+#cloud-config
+coreos:
+  etcd2:
+    initial-cluster: core01.tec1.tivo.com=http://core01.tec1.tivo.com:2380,core02.tec1.tivo.com=http://core02.tec1.tivo.com:2380,core03.tec1.tivo.com=http://core03.tec1.tivo.com:2380,core04.tec1.tivo.com=http://core04.tec1.tivo.com:2380,core05.tec1.tivo.com=http://core05.tec1.tivo.com:2380
+    listen-client-urls: http://0.0.0.0:2379
+    proxy: 'on'
+  units:
+  - command: start
+    drop-ins:
+    - content: |
+        [Service]
+        ExecStartPre=-/usr/bin/rmdir /var/lib/etcd2/member
+      name: 50-cleanup-data.conf
+    name: etcd2.service
+  - command: start
+    name: fleet.service
+  - command: start
+    content: |
+      [Unit]
+      Description=Configure required startup parameters of an inception node.
+      Before=network-pre.target
+
+      [Service]
+      RemainAfterExit=true
+      Type=oneshot
+      ExecStart=/bin/bash -c 'echo 30000-31000,40000-41000,50000-51000,60000-61000 > /proc/sys/net/ipv4/ip_local_reserved_ports'
+      ExecStart=/bin/bash -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
+    name: inception-config.service
+hostname: rohit-vm-01.tec1.tivo.com
+ssh_authorized_keys:
+- ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7Q8EAwHbHj+9wugfw1jt2G4E+pDhg9pBcNAbqbB8oVlFxqWXpu3LWS5lX7t2ieWQBMmzdmfymaaQk8YpJSQXvtxTZo0zvGvrz4JDq4wh2uU7ypUu+vxgIUE8duPNetseoIKawb1S6V/XDvJ8Wgll22rbRIuPhYi22GdKRLGGBi4JwYlXL4eSesFjXWLr2rlIZrSQ4E17eYamjCzmixASYNY1k5cf/ukQv9Fqbvrppp98ZOeepF/Dk4fP2Wjif2Ybd3LWwgoh4QOEmtMapYFcMnRFAgfomggFfnaHig/TE6KVPCr8yf8YoDB4A1NdqR/SsJu2nzvJSVYLfV8qgNH/oAKI4XKdATzb+Y6daqK4F3hf44USD0J5JVwoq8ObBMQqWQinYuWXi/uDx7gipCASzWhHzXY5P3rQu9IwXGuNyI4wxLiz1jr96A1YX0mL7cw77slLcl0eoWMKHXJ/geApXCLW6jnyaZcv2mpotNmc2kWYKwi8AT61GX4LoRay93sGbXuUi6yn3FdmaeG7bzS/S6TxzBHHjvSVMJuC8kSYqj/bX9A84Yq+5TwaE1SbgWasNCM4vmf1UrYorvd5U9uezxyqWn/SxxKkgFmh+1CKg3FGpCnCn1uMQNy67D8LZn8PU/vk25gZ7qzncLeLWTzjxL+8I0uLyq7aFI8JPEJYbyQ==
+  inception-scrum@tivo.com
+write_files:
+- content: |
+    127.0.0.1   localhost
+    ::1         localhost ip6-localhost ip6-loopback
+    $private_ipv4  rohit-vm-01.tec1.tivo.com
+  path: /etc/hosts
+

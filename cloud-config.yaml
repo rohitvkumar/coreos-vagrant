@@ -1,0 +1,124 @@
+#cloud-config
+#$ /home/tivo/bin/cloud-config.py -t openstack -n rohit-vm-01.tec1.tivo.com
+coreos:
+  etcd2:
+    initial-cluster: core01.tec1.tivo.com=http://core01.tec1.tivo.com:2380,core02.tec1.tivo.com=http://core02.tec1.tivo.com:2380,core03.tec1.tivo.com=http://core03.tec1.tivo.com:2380,core04.tec1.tivo.com=http://core04.tec1.tivo.com:2380,core05.tec1.tivo.com=http://core05.tec1.tivo.com:2380
+    listen-client-urls: http://0.0.0.0:2379
+    proxy: 'on'
+  units:
+  - command: start
+    drop-ins:
+    - content: |
+        [Service]
+        ExecStartPre=-/usr/bin/rmdir /var/lib/etcd2/member
+      name: 50-cleanup-data.conf
+    name: etcd2.service
+  - command: start
+    name: fleet.service
+  - command: start
+    content: |
+      [Unit]
+      Description=Configure required startup parameters of an inception node.
+      Before=network-pre.target
+
+      [Service]
+      RemainAfterExit=true
+      Type=oneshot
+      ExecStart=/bin/bash -c 'echo 30000-31000,40000-41000,50000-51000,60000-61000 > /proc/sys/net/ipv4/ip_local_reserved_ports'
+      ExecStart=/bin/bash -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
+    name: inception-config.service
+  - command: start
+    content: |
+      [Unit]
+      Description=Update the CoreOS CA certificate registry
+      Before=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/update-ca-certificates
+    enable: true
+    name: update-ca-certificates.service
+  - drop-ins:
+    - content: |
+        [Unit]
+        After=update-ca-certificates.service
+        Requires=update-ca-certificates.service
+      name: 50-ca-cert.conf
+    name: docker.service
+hostname: rohit-vm-01.tec1.tivo.com
+ssh_authorized_keys:
+- ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7Q8EAwHbHj+9wugfw1jt2G4E+pDhg9pBcNAbqbB8oVlFxqWXpu3LWS5lX7t2ieWQBMmzdmfymaaQk8YpJSQXvtxTZo0zvGvrz4JDq4wh2uU7ypUu+vxgIUE8duPNetseoIKawb1S6V/XDvJ8Wgll22rbRIuPhYi22GdKRLGGBi4JwYlXL4eSesFjXWLr2rlIZrSQ4E17eYamjCzmixASYNY1k5cf/ukQv9Fqbvrppp98ZOeepF/Dk4fP2Wjif2Ybd3LWwgoh4QOEmtMapYFcMnRFAgfomggFfnaHig/TE6KVPCr8yf8YoDB4A1NdqR/SsJu2nzvJSVYLfV8qgNH/oAKI4XKdATzb+Y6daqK4F3hf44USD0J5JVwoq8ObBMQqWQinYuWXi/uDx7gipCASzWhHzXY5P3rQu9IwXGuNyI4wxLiz1jr96A1YX0mL7cw77slLcl0eoWMKHXJ/geApXCLW6jnyaZcv2mpotNmc2kWYKwi8AT61GX4LoRay93sGbXuUi6yn3FdmaeG7bzS/S6TxzBHHjvSVMJuC8kSYqj/bX9A84Yq+5TwaE1SbgWasNCM4vmf1UrYorvd5U9uezxyqWn/SxxKkgFmh+1CKg3FGpCnCn1uMQNy67D8LZn8PU/vk25gZ7qzncLeLWTzjxL+8I0uLyq7aFI8JPEJYbyQ==
+  inception-scrum@tivo.com
+- ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8EZf5fwbgNAdJrb1+DthHuZ9wYikQXtNSa79FWOYXw6szaFSuw1VKKT4h906/Eaxl9VRszPA+JYk2ALiNok8teUVJSH2gcD4ahcEQbaeESfjOjyx04sXmYIooQ2mtMWQHRr6EDW6FbsWxvBi/Q/3Q3f+oAxxJfhF8R3Pj49Ye3Tro9LAehDUiZ0uGhT1iZgd4GegxNi5fpEJpDZPRXzgSN8+dnWVHISI1pBRZIgQJpFYj3z8PnnuEKBArMUHX+vQ984nDIl03raTXi4xHKrZHC/tLR1QkwTEuSy+WCXE8Tm9cfoJ1i2FAPKp9WE9yEPYxeVF1+nL+M3Nna/jFj429
+  rvalsakumar@110284-mbpr.local
+write_files:
+- content: |
+    127.0.0.1   localhost
+    ::1         localhost ip6-localhost ip6-loopback
+    $private_ipv4  rohit-vm-01.tec1.tivo.com
+  path: /etc/hosts
+- content: |
+    PS1="$(hostname)$ "
+  path: /etc/profile.d/tivo-profile.sh
+- content: |
+    -----BEGIN CERTIFICATE-----
+    MIIE8zCCA9ugAwIBAgIBRDANBgkqhkiG9w0BAQ0FADCBijELMAkGA1UEBhMCVVMx
+    EzARBgNVBAgTCkNhbGlmb3JuaWExDzANBgNVBAcTBkFsdmlzbzESMBAGA1UEChMJ
+    VGlWbyBJbmMuMQswCQYDVQQLEwJJVDEVMBMGA1UEAxMMVGlWbyBJbmMuIENBMR0w
+    GwYJKoZIhvcNAQkBFg5jZXJ0c0B0aXZvLmNvbTAeFw0xNjA0MTgyMTU3MDlaFw0z
+    NjA0MTMyMTU3MDlaMIGVMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5p
+    YTEPMA0GA1UEBwwGQWx2aXNvMREwDwYDVQQKDAhUaVZvIEluYzELMAkGA1UECwwC
+    SVQxITAfBgNVBAMMGFRpVm8gU1NMIEludGVybWVkaWF0ZSBDQTEdMBsGCSqGSIb3
+    DQEJARYOY2VydHNAdGl2by5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+    AoIBAQC/Kx4esPR+mRH3y6uZVDWMZxqXtPpPiSxqAKEi7OvhThh2M0Nnc2TlXFjN
+    1CGJiP+OZW8jnNEmVmwvTa10lsq5qDuc0DMLKozLrC/GtPfYLB6cwRxxhHKUA9hD
+    a91Pv4pR2jj+itHVEF4WSWlVP/weyucaT0UVnOwC9J8534cLSt2ysqcqcsbJwIAW
+    s787af16sIon4XLk63b5zFSWnr+2Expq9MyXNMrqXBkTxA5LvdYwPad/XCIKkBBI
+    jAcOCMtJNyIrFlRXV+9z7mMA2g0+mV3WhlHInhUSIWFU4KCLScARZdoFnc0LCn9r
+    55m85wlK7ayFmbtoXvDU/ugMk+23AgMBAAGjggFVMIIBUTAdBgNVHQ4EFgQU5l/M
+    BH5xypwJmdWjHRuJJK93kS8wgbcGA1UdIwSBrzCBrIAUnByjP2EbHQnrC9t8xzxq
+    QD9g83ehgZCkgY0wgYoxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlh
+    MQ8wDQYDVQQHEwZBbHZpc28xEjAQBgNVBAoTCVRpVm8gSW5jLjELMAkGA1UECxMC
+    SVQxFTATBgNVBAMTDFRpVm8gSW5jLiBDQTEdMBsGCSqGSIb3DQEJARYOY2VydHNA
+    dGl2by5jb22CAQowDAYDVR0TBAUwAwEB/zBIBggrBgEFBQcBAQQ8MDowOAYIKwYB
+    BQUHMAKGLGh0dHA6Ly9wa2kudGl2by5jb20vY2FjZXJ0cy9UaVZvX1Jvb3RfQ0Eu
+    Y3J0MAsGA1UdDwQEAwIBBjARBglghkgBhvhCAQEEBAMCAAcwDQYJKoZIhvcNAQEN
+    BQADggEBAHSqCSV4qBxNC+SbMFFgbe2jdC0pnZ6fH3wpmKiZQaWA2d/Xi0O9f+n5
+    jgV1Woas4W33FASn+W9kiMfUbdpAMcljC3Z3/EHNQzPASf2c+MGQD3kMK0qDi/Rr
+    55WRqHcP2Jpyt913EZxljBNJiZdNHm7jJuE/D6V7OIj17kitxrHXHwUnqH81Y1F1
+    pDhkmOe8Lww7sYL8gfiofFaDzbAS6J/K5icdtLUsPZu51j5WBw0Gbh3mGfBhtZu4
+    U2o0lGWjyIYZM0SU1cLqoo2m5e0lt1H9HzQJ73ixXBwRH/q+Yw33i058Qcj6cm0o
+    pGRBJ6SpW/nA04QTyBBVMVNDIy2cHt8=
+    -----END CERTIFICATE-----
+  path: /etc/ssl/certs/TiVo_SSL_Intermediate_CA.pem
+- content: |
+    -----BEGIN CERTIFICATE-----
+    MIIEnjCCA4agAwIBAgIBCjANBgkqhkiG9w0BAQUFADCBijELMAkGA1UEBhMCVVMx
+    EzARBgNVBAgTCkNhbGlmb3JuaWExDzANBgNVBAcTBkFsdmlzbzESMBAGA1UEChMJ
+    VGlWbyBJbmMuMQswCQYDVQQLEwJJVDEVMBMGA1UEAxMMVGlWbyBJbmMuIENBMR0w
+    GwYJKoZIhvcNAQkBFg5jZXJ0c0B0aXZvLmNvbTAeFw0xMDA3MTIyMDUzMThaFw0z
+    NTA3MDYyMDUzMThaMIGKMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5p
+    YTEPMA0GA1UEBxMGQWx2aXNvMRIwEAYDVQQKEwlUaVZvIEluYy4xCzAJBgNVBAsT
+    AklUMRUwEwYDVQQDEwxUaVZvIEluYy4gQ0ExHTAbBgkqhkiG9w0BCQEWDmNlcnRz
+    QHRpdm8uY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuCunqKjU
+    F4mHVPQgEIl1BlTBjRZcEoCyrwJrHztYwr0JfoGof0lco4iTL/KscMvs72XuPBGs
+    bpI33mKPVUnRboHRVdBBLwO9ooYlrwKG6/6zo4ACDujAdXAiLeiOYmneVvPeiVin
+    TYjfKXFD3UZjp4xTVq22sxbZF0cdNvfdAWrT+FZb0HS7dOPXEqmSB/Ja/Sy6H/eG
+    jXPfd0KVMkvQAkFhop77BctXPR4h78mncjLuWJb8sr6EodxXD9rz/zijOJnpy0zG
+    /w1uBa34zo5qnX34JF+EEaWNQ+xUsOTxeaeUajkCW5l3lPTqI27PjMMgp83YGURW
+    MLf5h4s/4GS3GQIDAQABo4IBCzCCAQcwHQYDVR0OBBYEFJwcoz9hGx0J6wvbfMc8
+    akA/YPN3MIG3BgNVHSMEga8wgayAFJwcoz9hGx0J6wvbfMc8akA/YPN3oYGQpIGN
+    MIGKMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEPMA0GA1UEBxMG
+    QWx2aXNvMRIwEAYDVQQKEwlUaVZvIEluYy4xCzAJBgNVBAsTAklUMRUwEwYDVQQD
+    EwxUaVZvIEluYy4gQ0ExHTAbBgkqhkiG9w0BCQEWDmNlcnRzQHRpdm8uY29tggEK
+    MAwGA1UdEwQFMAMBAf8wCwYDVR0PBAQDAgEGMBEGCWCGSAGG+EIBAQQEAwIABzAN
+    BgkqhkiG9w0BAQUFAAOCAQEAToCU+VTgZHRRUaOoLKuyVQN6SPIW81OXPdzfyTov
+    lQEv/31FY228dPUiTlaRjVScWWvz104tc3who6fRA1MSCcdSLyGAlUfXeh+ENZ1M
+    m2JJlyMVMSJxOEmHTSehmU5ECEvHuEveDjlJbUtl0q9KLbf98+3flH2Ii7aMNBTk
+    ZQcBvr3XWFN1hDu0oQ+XkpZ+xnwgr35EzoT1AYvA8eeKtvyzf1tu599CZujLq1CH
+    9TH8M0099SEfhAIIEeJMY5o/5kwS4piqEdRD/u90AgwzlnGrgyDBOpbT/eQHh9Eq
+    4miYNjSMjH1h+gd3srrm5MuyMBwZ2VSyi3GnQE+erYMc5A==
+    -----END CERTIFICATE-----
+  path: /etc/ssl/certs/TiVo_Root_CA.pem
+
