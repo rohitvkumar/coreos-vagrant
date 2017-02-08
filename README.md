@@ -3,12 +3,17 @@
 This repo provides a template Vagrantfile to create a CoreOS virtual machine using the VirtualBox software hypervisor.
 After setup is complete you will have a single CoreOS virtual machine running on your local machine.
 
+## Contact
+IRC: #coreos on freenode.org
+
+Mailing list: [coreos-dev](https://groups.google.com/forum/#!forum/coreos-dev)
+
 ## Streamlined setup
 
 1) Install dependencies
 
 * [VirtualBox][virtualbox] 4.3.10 or greater.
-* [Vagrant][vagrant] 1.6 or greater.
+* [Vagrant][vagrant] 1.6.3 or greater.
 
 2) Clone this project and get it running!
 
@@ -94,14 +99,11 @@ Make sure you provide a fresh discovery URL in your `user-data` if you wish to b
 ## New Box Versions
 
 CoreOS is a rolling release distribution and versions that are out of date will automatically update.
-If you want to start from the most up to date version you will need to make sure that you have the latest box file of CoreOS.
-Simply remove the old box file and vagrant will download the latest one the next time you `vagrant up`.
+If you want to start from the most up to date version you will need to make sure that you have the latest box file of CoreOS. You can do this by running
+```
+vagrant box update
+```
 
-```
-vagrant box remove coreos --provider vmware_fusion
-vagrant box remove coreos --provider vmware_workstation
-vagrant box remove coreos --provider virtualbox
-```
 
 ## Docker Forwarding
 
