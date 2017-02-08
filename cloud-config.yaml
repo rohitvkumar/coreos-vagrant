@@ -1,5 +1,5 @@
 #cloud-config
-#$ /home/tivo/bin/cloud-config.py -t openstack -n rohit-vm-01.tec1.tivo.com
+#$ /home/tivo/bin/cloud-config.py -t baremetal -i 172.17.8.101 -n rohit-vm-01.tec1.tivo.com
 coreos:
   etcd2:
     initial-cluster: core01.tec1.tivo.com=http://core01.tec1.tivo.com:2380,core02.tec1.tivo.com=http://core02.tec1.tivo.com:2380,core03.tec1.tivo.com=http://core03.tec1.tivo.com:2380,core04.tec1.tivo.com=http://core04.tec1.tivo.com:2380,core05.tec1.tivo.com=http://core05.tec1.tivo.com:2380
@@ -56,7 +56,7 @@ write_files:
 - content: |
     127.0.0.1   localhost
     ::1         localhost ip6-localhost ip6-loopback
-    $private_ipv4  rohit-vm-01.tec1.tivo.com
+    172.17.8.101  rohit-vm-01.tec1.tivo.com
   path: /etc/hosts
 - content: |
     PS1="$(hostname)$ "
