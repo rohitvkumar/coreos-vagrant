@@ -20,6 +20,7 @@ $vm_memory = 1024
 $vm_cpus = 1
 $shared_folders = {}
 $forwarded_ports = {}
+$dc_domain = "tec1.tivo.com"
 
 # Attempt to apply the deprecated environment variable NUM_INSTANCES to
 # $num_instances while allowing config.rb to override it
@@ -73,7 +74,8 @@ Vagrant.configure("2") do |config|
   end
 
   (1..$num_instances).each do |i|
-    config.vm.define vm_name = "%s-%02d" % [$instance_name_prefix, i] do |config|
+    #config.vm.define vm_name = "%s-%02d" % [$instance_name_prefix, i] do |config|
+    config.vm.define vm_name = "%s-%02d.%s" % [$instance_name_prefix, i, $dc_domain] do |config|
       config.vm.hostname = vm_name
 
       if $enable_serial_logging
