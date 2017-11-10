@@ -1,5 +1,5 @@
 #cloud-config
-#$ /home/tivo/bin/cloud-config.py -t baremetal -i 172.17.8.101 -n rohit-vm-01.tec1.tivo.com
+#$ /home/tivo/bin/cloud-config.py -t openstack -n rohit-vm-01.tec1.tivo.com
 coreos:
   etcd2:
     initial-cluster: core01.tec1.tivo.com=http://core01.tec1.tivo.com:2380,core02.tec1.tivo.com=http://core02.tec1.tivo.com:2380,core03.tec1.tivo.com=http://core03.tec1.tivo.com:2380,core04.tec1.tivo.com=http://core04.tec1.tivo.com:2380,core05.tec1.tivo.com=http://core05.tec1.tivo.com:2380
@@ -9,10 +9,26 @@ coreos:
   - command: start
     drop-ins:
     - content: |
+        [Unit]
+        After=chownEtcd2Directory.service
+        Requires=chownEtcd2Directory.service
+      name: 45-chown-dir.conf
+    - content: |
         [Service]
         ExecStartPre=-/usr/bin/rmdir /var/lib/etcd2/member
       name: 50-cleanup-data.conf
     name: etcd2.service
+  - content: |
+      [Unit]
+      Description=Change ownership of /var/lib/etcd2 to etcd:etcd
+      Before=etcd2.service
+      After=var-lib-etcd2.mount
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/usr/bin/chown etcd:etcd /var/lib/etcd2
+    name: chownEtcd2Directory.service
   - command: start
     name: fleet.service
   - command: start
@@ -27,6 +43,28 @@ coreos:
       ExecStart=/bin/bash -c 'echo 30000-31000,40000-41000,50000-51000,60000-61000 > /proc/sys/net/ipv4/ip_local_reserved_ports'
       ExecStart=/bin/bash -c 'echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6'
     name: inception-config.service
+  - command: start
+    content: |
+      [Unit]
+      Description=Set Route53 DNS entry from hostname
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      ExecStartPre=-/usr/bin/docker rm -f aws-dns-update
+      ExecStartPre=/bin/sh -c \
+        'CHANNEL=$(etcdctl get /tivo.com/dynconfig/channel 2> /dev/null || echo stable); \
+         REGISTRY=$(etcdctl get /tivo.com/dynconfig/registry 2> /dev/null || echo docker.tivo.com); \
+         /usr/bin/docker pull $REGISTRY/aws-dns-update:$CHANNEL'
+      ExecStart=/bin/sh -c \
+        'CHANNEL=$(etcdctl get /tivo.com/dynconfig/channel 2> /dev/null || echo stable); \
+         REGISTRY=$(etcdctl get /tivo.com/dynconfig/registry 2> /dev/null || echo docker.tivo.com); \
+         /usr/bin/docker run --rm --name aws-dns-update --net host $REGISTRY/aws-dns-update:$CHANNEL -n rohit-vm-01.tec1.tivo.com -i $private_ipv4'
+      RemainAfterExit=yes
+      Restart=on-failure
+      StartLimitInterval=0
+    enable: true
+    name: aws-dns-update.service
   - command: start
     content: |
       [Unit]
@@ -46,18 +84,24 @@ coreos:
         Requires=update-ca-certificates.service
       name: 50-ca-cert.conf
     name: docker.service
+  update:
+    reboot-strategy: 'off'
 hostname: rohit-vm-01.tec1.tivo.com
 ssh_authorized_keys:
 - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7Q8EAwHbHj+9wugfw1jt2G4E+pDhg9pBcNAbqbB8oVlFxqWXpu3LWS5lX7t2ieWQBMmzdmfymaaQk8YpJSQXvtxTZo0zvGvrz4JDq4wh2uU7ypUu+vxgIUE8duPNetseoIKawb1S6V/XDvJ8Wgll22rbRIuPhYi22GdKRLGGBi4JwYlXL4eSesFjXWLr2rlIZrSQ4E17eYamjCzmixASYNY1k5cf/ukQv9Fqbvrppp98ZOeepF/Dk4fP2Wjif2Ybd3LWwgoh4QOEmtMapYFcMnRFAgfomggFfnaHig/TE6KVPCr8yf8YoDB4A1NdqR/SsJu2nzvJSVYLfV8qgNH/oAKI4XKdATzb+Y6daqK4F3hf44USD0J5JVwoq8ObBMQqWQinYuWXi/uDx7gipCASzWhHzXY5P3rQu9IwXGuNyI4wxLiz1jr96A1YX0mL7cw77slLcl0eoWMKHXJ/geApXCLW6jnyaZcv2mpotNmc2kWYKwi8AT61GX4LoRay93sGbXuUi6yn3FdmaeG7bzS/S6TxzBHHjvSVMJuC8kSYqj/bX9A84Yq+5TwaE1SbgWasNCM4vmf1UrYorvd5U9uezxyqWn/SxxKkgFmh+1CKg3FGpCnCn1uMQNy67D8LZn8PU/vk25gZ7qzncLeLWTzjxL+8I0uLyq7aFI8JPEJYbyQ==
   inception-scrum@tivo.com
-- ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8EZf5fwbgNAdJrb1+DthHuZ9wYikQXtNSa79FWOYXw6szaFSuw1VKKT4h906/Eaxl9VRszPA+JYk2ALiNok8teUVJSH2gcD4ahcEQbaeESfjOjyx04sXmYIooQ2mtMWQHRr6EDW6FbsWxvBi/Q/3Q3f+oAxxJfhF8R3Pj49Ye3Tro9LAehDUiZ0uGhT1iZgd4GegxNi5fpEJpDZPRXzgSN8+dnWVHISI1pBRZIgQJpFYj3z8PnnuEKBArMUHX+vQ984nDIl03raTXi4xHKrZHC/tLR1QkwTEuSy+WCXE8Tm9cfoJ1i2FAPKp9WE9yEPYxeVF1+nL+M3Nna/jFj429
-  rvalsakumar@110284-mbpr.local
 write_files:
 - content: |
     127.0.0.1   localhost
     ::1         localhost ip6-localhost ip6-loopback
-    172.17.8.101  rohit-vm-01.tec1.tivo.com
+    $private_ipv4  rohit-vm-01.tec1.tivo.com
   path: /etc/hosts
+- content: |
+    {
+        "detachKeys" : "ctrl-@,@"
+    }
+  owner: core:core
+  path: /home/core/.docker/config.json
 - content: |
     PS1="$(hostname)$ "
   path: /etc/profile.d/tivo-profile.sh
